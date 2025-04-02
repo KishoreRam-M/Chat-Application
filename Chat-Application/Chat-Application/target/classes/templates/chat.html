@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,29 +7,39 @@
 
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- SockJS & STOMP -->
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.1/stomp.min.js"></script>
-
 </head>
-<body class="bg-dark text-light">
-<div class="container-fluid mt-4 text-center">
-    <h1 class="display-1 text-warning text-uppercase">Court Of Owls</h1>
+
+<body class="bg-gray-900 text-white">
+<div class="container mt-5 flex flex-col items-center justify-center">
+
+    <!-- Header -->
+    <h1 class="text-6xl font-bold text-yellow-400 uppercase tracking-widest mb-5 animate-pulse">
+        Court Of Owls
+    </h1>
 
     <!-- Chat Display Box -->
-    <div id="chat" class="border border-info rounded p-3 mb-3 bg-black text-start" style="height: 300px; overflow-y: auto;"></div>
+    <div id="chat" class="border border-yellow-400 rounded-lg p-4 mb-4 w-full md:w-2/3 lg:w-1/2 h-80 overflow-y-auto bg-gray-800 shadow-lg backdrop-blur-md">
+        <p class="text-center text-gray-500">Messages will appear here...</p>
+    </div>
 
     <!-- Username Input -->
-    <div class="input-group mb-3 w-50 mx-auto">
-        <input id="senderInput" type="text" class="form-control bg-dark text-light border-info" placeholder="Enter your name">
+    <div class="flex w-full md:w-2/3 lg:w-1/2 mb-3">
+        <input id="senderInput" type="text" class="flex-1 p-2 rounded-l-lg bg-gray-800 border border-yellow-400 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400" placeholder="Enter your name">
     </div>
 
     <!-- Message Input -->
-    <div class="input-group mb-3 w-50 mx-auto">
-        <input id="messageInput" type="text" class="form-control bg-dark text-light border-info" placeholder="Enter your message">
+    <div class="flex w-full md:w-2/3 lg:w-1/2 mb-3">
+        <input id="messageInput" type="text" class="flex-1 p-2 rounded-l-lg bg-gray-800 border border-yellow-400 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400" placeholder="Enter your message">
+        <button id="sendMessage" class="px-4 py-2 bg-yellow-400 text-gray-900 font-bold rounded-r-lg hover:bg-yellow-500 transition duration-300">Send</button>
     </div>
 
-    <!-- Send Button -->
-    <button id="sendMessage" class="btn btn-outline-warning px-4 py-2">Send</button>
 </div>
 
 <!-- Bootstrap JS -->
@@ -46,8 +56,10 @@
         var socket = new SockJS('/chat');
         stompClient = Stomp.over(socket);
         stompClient.connect({}, function(frame) {
+            console.log("Connected: " + frame);
             setConnected(true);
             stompClient.subscribe('/topic/message', function(message) {
+                console.log("Received message:", message.body);
                 showMessage(JSON.parse(message.body));
             });
         });
@@ -57,9 +69,9 @@
         var chat = document.getElementById('chat');
         var messageElement = document.createElement('div');
         messageElement.textContent = message.sender + ': ' + message.content;
-        messageElement.classList.add("border-bottom", "mb-1");
+        messageElement.classList.add("p-2", "rounded", "mb-2", "bg-gray-700", "text-white", "shadow-lg", "transition", "duration-300", "hover:bg-gray-600");
         chat.appendChild(messageElement);
-        chat.scrollTop = chat.scrollHeight;
+        chat.scrollTop = chat.scrollHeight; // Auto-scroll to the latest message
     }
 
     function sendMessage() {
@@ -72,22 +84,14 @@
             };
             stompClient.send("/app/sendMessage", {}, JSON.stringify(chatMessage));
             document.getElementById('messageInput').value = '';
+        } else {
+            alert("Please enter both name and message.");
         }
     }
 
     document.getElementById('sendMessage').onclick = sendMessage;
     window.onload = connect;
 </script>
+
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
