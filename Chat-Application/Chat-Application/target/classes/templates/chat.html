@@ -59,13 +59,16 @@
             console.log("Connected: " + frame);
             setConnected(true);
             stompClient.subscribe('/topic/message', function(message) {
-                console.log("Received message:", message.body);
+                console.log("Received message:", message); // Log the raw message
                 showMessage(JSON.parse(message.body));
             });
+        }, function(error) {
+            console.error("STOMP error: " + error); // Log any connection errors
         });
     }
 
     function showMessage(message) {
+        console.log("Showing message:", message); // Log the message being shown
         var chat = document.getElementById('chat');
         var messageElement = document.createElement('div');
         messageElement.textContent = message.sender + ': ' + message.content;
