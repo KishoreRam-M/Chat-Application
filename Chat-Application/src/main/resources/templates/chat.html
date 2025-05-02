@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Court of Owls Chat</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.1/stomp.min.js"></script>
+
+    <style>
+        :root {
+            --surface-1: #121212;
+            --surface-2: rgba(255, 255, 255, 0.05);
+            --surface-3: rgba(255, 255, 255, 0.07);
+            --accent: #8758FF;
+            --accent-dim: #6A47CC;
+            --text-primary: #EFEFEF;
+            --text-secondary: #B0B0B0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--surface-1);
+            font-family: 'Quicksand', sans-serif;
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .app-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+
+        .app-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #8758FF, #5CB8E4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            position: relative;
+            text-align: center;
+        }
+
+        .app-title::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 10%;
+            width: 80%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+        }
+
+        .app-logo {
+            margin-right: 0.5rem;
+            background: linear-gradient(135deg, #8758FF, #5CB8E4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 70vh;
+            max-height: 600px;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            position: relative;
+            background: rgba(30, 30, 30, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--surface-3);
+        }
+
+        .typing-indicator {
+            position: absolute;
+            top: -30px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 0.875rem;
+            color: var(--accent);
+            font-style: italic;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 3px 0;
+            border-radius: 20px;
+            opacity: 0;
+            transform: translateY(5px);
+            transition: all 0.3s ease;
+        }
+
+        .typing-indicator.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .chat-header {
+            padding: 1rem;
+            background: var(--surface-2);
+            border-bottom: 1px solid var(--surface-3);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .chat-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+        }
+
+        .chat-title .material-icons-round {
+            margin-right: 6px;
+            color: var(--accent);
+        }
+
+        .chat-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .action-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: color 0.2s ease;
+            outline: none;
+        }
+
+        .action-btn:hover {
+            color: var(--accent);
+        }
+
+        .chat-body {
+            flex: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            scroll-behavior: smooth;
+        }
+
+        .empty-state {
+            margin: auto;
+            text-align: center;
+            color: var(--text-secondary);
+            font-style: italic;
+            opacity: 0.6;
+        }
+
+        .message-card {
+            max-width: 80%;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: flex-start;
+            animation: fadeIn 0.3s ease forwards;
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: linear-gradient(145deg, var(--accent), var(--accent-dim));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            margin-right: 10px;
+            flex-shrink: 0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .message-content {
+            background: var(--surface-2);
+            border-radius: 12px 12px 12px 2px;
+            padding: 10px 16px;
+            position: relative;
+            border-left: 3px solid var(--accent);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .message-content::before {
+            content: '';
+            position: absolute;
+            left: -8px;
+            top: 14px;
+            width: 0;
+            height: 0;
+            border-top: 8px solid transparent;
+            border-bottom: 8px solid transparent;
+            border-right: 8px solid var(--surface-2);
+        }
+
+        .message-sender {
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: var(--accent);
+        }
+
+        .message-text {
+            color: var(--text-primary);
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+
+        .message-time {
+            display: block;
+            font-size: 0.7rem;
+            margin-top: 5px;
+            text-align: right;
+            color: var(--text-secondary);
+        }
+
+        .chat-footer {
+            padding: 1rem;
+            background: var(--surface-2);
+            border-top: 1px solid var(--surface-3);
+        }
+
+        .user-info {
+            margin-bottom: 0.75rem;
+        }
+
+        .input-field {
+            width: 100%;
+            background: var(--surface-3);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--text-primary);
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-family: 'Quicksand', sans-serif;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .input-field:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(135, 88, 255, 0.2);
+        }
+
+        .input-field::placeholder {
+            color: var(--text-secondary);
+            opacity: 0.6;
+        }
+
+        .message-composer {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .message-input {
+            flex: 1;
+        }
+
+        .emoji-toggle {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.25rem;
+            cursor: pointer;
+            padding: 0 10px;
+            transition: all 0.2s ease;
+            align-self: center;
+        }
+
+        .emoji-toggle:hover {
+            color: var(--accent);
+            transform: scale(1.1);
+        }
+
+        .send-btn {
+            background: linear-gradient(135deg, var(--accent), var(--accent-dim));
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 20px;
+            font-weight: 600;
+            font-family: 'Quicksand', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .send-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(135, 88, 255, 0.5);
+        }
+
+        .send-btn:active {
+            transform: translateY(0);
+        }
+
+        .actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 0.75rem;
+        }
+
+        .clear-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            cursor: pointer;
+            padding: 5px 10px;
+            transition: color 0.2s ease;
+            text-decoration: underline;
+        }
+
+        .clear-btn:hover {
+            color: var(--accent);
+        }
+
+        emoji-picker {
+            position: absolute;
+            bottom: 140px;
+            right: 20px;
+            z-index: 100;
+            opacity: 0;
+            transform: scale(0.8);
+            transform-origin: bottom right;
+            pointer-events: none;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        emoji-picker.visible {
+            opacity: 1;
+            transform: scale(1);
+            pointer-events: all;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--accent-dim);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent);
+        }
+
+        /* Notification animation */
+        @keyframes ping {
+            0% { transform: scale(0.8); opacity: 1; }
+            70% { transform: scale(1.2); opacity: 0.7; }
+            100% { transform: scale(0.8); opacity: 1; }
+        }
+
+        .ping-animation {
+            animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+
+        /* Pulse effect for active status */
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background-color: #4CAF50;
+            border-radius: 50%;
+            margin-left: 6px;
+            position: relative;
+        }
+
+        .status-indicator::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-color: #4CAF50;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+            opacity: 0.8;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.8; }
+            70% { transform: scale(1.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 0; }
+        }
+    </style>
+</head>
+
+<body onload="connect()">
+<div class="container">
+    <div class="app-header">
+        <h1 class="app-title">
+            <span class="material-icons-round app-logo">forum</span>
+            Court of Owls Chat
+        </h1>
+    </div>
+
+    <div id="typing" class="typing-indicator">Someone is typing...</div>
+
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="chat-title">
+                <span class="material-icons-round">group</span>
+                Discussion Channel
+                <span class="status-indicator"></span>
+            </div>
+            <div class="chat-actions">
+                <button class="action-btn" title="Members">
+                    <span class="material-icons-round">people</span>
+                </button>
+                <button class="action-btn" title="Settings">
+                    <span class="material-icons-round">settings</span>
+                </button>
+            </div>
+        </div>
+
+        <div id="chat" class="chat-body">
+            <div class="empty-state">
+                <span class="material-icons-round" style="font-size: 2rem; margin-bottom: 1rem;">chat_bubble_outline</span>
+                <p>Messages will appear here...</p>
+            </div>
+        </div>
+
+        <div class="chat-footer">
+            <div class="user-info">
+                <input id="senderInput" type="text" class="input-field" placeholder="Your Name" />
+            </div>
+
+            <div class="message-composer">
+                <div class="message-input">
+                    <input id="messageInput" type="text" class="input-field" placeholder="Type your message..." />
+                </div>
+
+                <button id="emojiBtn" class="emoji-toggle" title="Add Emoji">😊</button>
+
+                <button id="sendMessage" class="send-btn">
+                    <span class="material-icons-round">send</span>
+                    Send
+                </button>
+            </div>
+
+            <div class="actions">
+                <button onclick="clearChat()" class="clear-btn">Clear Chat</button>
+            </div>
+        </div>
+    </div>
+
+    <emoji-picker id="emojiPicker"></emoji-picker>
+</div>
+
+<script>
+    let stompClient = null;
+    let sender = '';
+
+    function connect() {
+        const socket = new SockJS('/chat');
+        stompClient = Stomp.over(socket);
+        stompClient.connect({}, () => {
+            stompClient.subscribe('/topic/message', (message) => showMessage(JSON.parse(message.body)));
+            stompClient.subscribe('/topic/typing', (message) => {
+                const data = JSON.parse(message.body);
+                document.getElementById('typing').innerText = `${data.sender} is typing...`;
+                document.getElementById('typing').classList.add('visible');
+            });
+            stompClient.subscribe('/topic/stopTyping', () => {
+                document.getElementById('typing').classList.remove('visible');
+            });
+        });
+    }
+
+    function showMessage(msg) {
+        const chat = document.getElementById('chat');
+
+        // Clear the empty state if it's the first message
+        if (chat.querySelector('.empty-state')) {
+            chat.innerHTML = '';
+        }
+
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'message-card';
+        msgDiv.style.animationDelay = '0.1s';
+
+        msgDiv.innerHTML = `
+            <div class="message-avatar">${msg.sender.charAt(0).toUpperCase()}</div>
+            <div class="message-content">
+                <div class="message-sender">${msg.sender}</div>
+                <div class="message-text">${msg.content}</div>
+                <span class="message-time">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+            </div>
+        `;
+
+        chat.appendChild(msgDiv);
+        chat.scrollTop = chat.scrollHeight;
+
+        // Play notification sound
+        new Audio('https://www.soundjay.com/button/beep-07.wav').play();
+    }
+
+    document.getElementById('sendMessage').addEventListener('click', sendMessageHandler);
+    document.getElementById('messageInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            sendMessageHandler();
+        }
+    });
+
+    function sendMessageHandler() {
+        sender = document.getElementById('senderInput').value.trim();
+        const content = document.getElementById('messageInput').value.trim();
+
+        if (!sender || !content) {
+            // Shake animation for validation
+            const inputWithError = !sender ? 'senderInput' : 'messageInput';
+            const element = document.getElementById(inputWithError);
+            element.style.borderColor = '#ff4757';
+            element.style.animation = 'shake 0.5s linear';
+
+            setTimeout(() => {
+                element.style.borderColor = '';
+                element.style.animation = '';
+            }, 500);
+
+            return;
+        }
+
+        stompClient.send("/app/sendMessage", {}, JSON.stringify({ sender, content }));
+        document.getElementById('messageInput').value = '';
+        document.getElementById('messageInput').focus();
+    }
+
+    document.getElementById('messageInput').addEventListener('input', () => {
+        if (!sender) sender = document.getElementById('senderInput').value.trim();
+        if (sender) {
+            stompClient.send("/app/typing", {}, JSON.stringify({ sender }));
+            clearTimeout(window.typingTimeout);
+            window.typingTimeout = setTimeout(() => {
+                stompClient.send("/app/stopTyping", {}, JSON.stringify({ sender }));
+            }, 2000);
+        }
+    });
+
+    function clearChat() {
+        document.getElementById('chat').innerHTML = `
+            <div class="empty-state">
+                <span class="material-icons-round" style="font-size: 2rem; margin-bottom: 1rem;">chat_bubble_outline</span>
+                <p>Messages will appear here...</p>
+            </div>
+        `;
+    }
+
+    // Emoji picker toggle
+    const emojiBtn = document.getElementById('emojiBtn');
+    const emojiPicker = document.getElementById('emojiPicker');
+    const messageInput = document.getElementById('messageInput');
+
+    emojiBtn.addEventListener('click', () => {
+        emojiPicker.classList.toggle('visible');
+    });
+
+    // Close emoji picker when clicking outside
+    document.addEventListener('click', (e) => {
+        if (e.target !== emojiBtn && !emojiPicker.contains(e.target)) {
+            emojiPicker.classList.remove('visible');
+        }
+    });
+
+    emojiPicker.addEventListener('emoji-click', event => {
+        messageInput.value += event.detail.unicode;
+        messageInput.focus();
+    });
+
+    // Shake animation
+    document.styleSheets[0].insertRule(`
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+    `, document.styleSheets[0].cssRules.length);
+</script>
+</body>
+</html>
